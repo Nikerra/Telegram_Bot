@@ -1,18 +1,20 @@
-bot:
-  name: Nik_Kon_Bot
-  token: 5840825771:AAEZaTuVGb2BBY9XCvMEkUYKO825aa8vdNk
-  owner: 381645544
-cron:
-  scheduler: 0 * * * * *
+#bot:
+#  name: Nik_Kon_Bot
+#  token: 5840825771:AAH2XKpiYA7LbJQRl2utR6zE2C4EUq_wvnw
+#  owner: 381645544
+#cron:
+#  scheduler: 0 * * * * *
 
 spring:
-  datasource:
-    url: jdbc:postgresql://localhost:8081/postgres
-    username: postgres
-    password: 123456
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    show-sql: true
-  properties:
-    hibernate:
-      format_sql: true
+  config:
+    location: /app/application.yml
+#  datasource:
+#    url: jdbc:postgresql://localhost:8082/postgres
+#    username: postgres
+#    password: 123456
+#    driver-class-name: org.postgresql.Driver
+#  jpa:
+#    show-sql: true
+#  properties:
+#    hibernate:
+#      format_sql: true
