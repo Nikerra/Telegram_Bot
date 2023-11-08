@@ -1,1 +1,16 @@
+bot:
+  name: Nik_Kon_Bot
+  token: 5840825771:AAEdmda0SKW137eZdeSycXWzYAdSodCnR2o
+  owner: 381645544
 
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:8082/postgres
+    username: postgres
+    password: 123456
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    show-sql: true
+  properties:
+    hibernate:
+      format_sql: true
