@@ -1,8 +1,9 @@
 bot:
   name: Nik_Kon_Bot
-  token: 5840825771:AAHrlpVW1StX0bUI9tx1xvQwt3aUxXkJy4w
+  token: 5840825771:AAHLzZBFe_K65WGShlKnjWImp7wZE7ltABM
   owner: 381645544
-
+cron:
+  scheduler: 0 * * * * *
 spring:
   datasource:
     url: jdbc:postgresql://localhost:8082/postgres

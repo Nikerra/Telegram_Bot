@@ -2,11 +2,15 @@ package io.project.telegram_bot.service;
 
 import com.vdurmont.emoji.EmojiParser;
 import io.project.telegram_bot.config.BotConfig;
+import io.project.telegram_bot.model.entity.Ads;
+import io.project.telegram_bot.model.repository.AdsRepository;
 import io.project.telegram_bot.model.repository.UserRepository;
 import io.project.telegram_bot.model.entity.User;
 
 import lombok.extern.slf4j.Slf4j;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
@@ -33,7 +37,6 @@ public class TelegramBot extends TelegramLongPollingBot {
     private static final String YOU_NOT_ADMIN = "Вы не являетесь администратором бота и данная команда вам не доступна";
     private final String YES_BUTTON = "yes";
     private final String NO_BUTTON = "no";
-    private final UserRepository repository;
     private final String COMMAND_START_EN = "/start";
     private final String COMMAND_START_RU = "старт";
     private final String COMMAND_MY_DATA_EN = "/mydata";
@@ -43,7 +46,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     private final String COMMAND_HELP_EN = "/help";
     private final String COMMAND_HELP_RU = "помощь";
     private final String COMMAND_REGISTER_EN = "/register";
-    private final String COMMAND_REGISTER_RU = "/регистрация";
+    private final String COMMAND_REGISTER_RU = "регистрация";
     private final String COMMAND_SEND_EN = "/send";
     private final String COMMAND_NOT_FOUND = "Простите, комманда не найдена";
     private final String ERROR_MESSAGE = "Возникла ошибка: ";
@@ -55,13 +58,19 @@ public class TelegramBot extends TelegramLongPollingBot {
             Команда "/help" или "помощь", выводит пользователю краткий справочник по командам бота;
             Команда "/register" или "регистрация", пока что демонстрирует работу кнопок под сообщением;
             """;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private AdsRepository adsRepository;
     final BotConfig config;
-    public TelegramBot(BotConfig config, UserRepository repository) {
+
+    public TelegramBot(BotConfig config, UserRepository userRepository) {
         /*
             Меню команд
          */
         this.config = config;
-        this.repository = repository;
         List<BotCommand> listCommands = new ArrayList<>();
         listCommands.add(new BotCommand(COMMAND_START_EN,"запуск бота"));
         listCommands.add(new BotCommand(COMMAND_MY_DATA_EN, "общая информация о пользователе"));
@@ -102,7 +111,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             if(message.contains(COMMAND_SEND_EN)) {
                 if(config.getOwnerId() == chatId) {
                     var textToSend = EmojiParser.parseToUnicode(message.substring(message.indexOf(" ")));
-                    var users = repository.findAll();
+                    var users = userRepository.findAll();
 
                     for (User user : users) {
                         prepareAndSendMessage(user.getChatId(), textToSend);
@@ -185,7 +194,7 @@ public class TelegramBot extends TelegramLongPollingBot {
      */
     private void deleteUserInfo(long chatId, Message message) {
 
-        User user = repository.findByChatId(chatId);
+        User user = userRepository.findByChatId(chatId);
         if (user == null) {
             prepareAndSendMessage(chatId, "Все данные о вас " + message.getChat().getUserName()+ " удалены из базы данных!");
             log.error("Данные о пользователе с ID=" + chatId + " не найдены!");
@@ -195,7 +204,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             answer = EmojiParser.parseToUnicode("Удаленны данные о пользователе: "
                     + user.getUserName() + ":ok_hand:");
             prepareAndSendMessage(chatId, answer);
-            repository.delete(user);
+            userRepository.delete(user);
         }
 
         log.info("Удалены данные о пользователе: " + user);
@@ -208,7 +217,7 @@ public class TelegramBot extends TelegramLongPollingBot {
      */
     private void userInfo(long chatId, Message message) {
 
-        User user = repository.findByChatId(chatId);
+        User user = userRepository.findByChatId(chatId);
         if (user == null) {
             prepareAndSendMessage(chatId, "Данные о пользователе " + message.getChat().getUserName() + " не найдены!");
             log.error("Данные о пользователе с ID=" + chatId + " не найдены!");
@@ -226,7 +235,7 @@ public class TelegramBot extends TelegramLongPollingBot {
      */
     private void registerUser(Message message) {
 
-        if (repository.findById(message.getChatId()).isEmpty()) {
+        if (userRepository.findById(message.getChatId()).isEmpty()) {
             var chatId = message.getChatId();
             var chat = message.getChat();
 
@@ -237,7 +246,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             user.setUserName(chat.getUserName());
             user.setRegistrationTime(new Timestamp(System.currentTimeMillis()));
 
-            repository.save(user);
+            userRepository.save(user);
             log.info("Сохранены данные пользователя: " + user);
         }
     }
@@ -323,10 +332,30 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * метод подготовки и отправки сообщения
+     * @param chatId type of long
+     * @param textToSend type of String
+     */
     private void prepareAndSendMessage(long chatId, String textToSend) {
         SendMessage message = new SendMessage();
         message.setChatId(String.valueOf(chatId));
         message.setText(textToSend);
         executeMessageText(message);
     }
+
+    /**
+     * Выгрузка текста из БД в бот в заданное время
+     */
+//    @Scheduled(cron = "${cron.scheduler}")
+//    private void sendAds() {
+//        var ads = adsRepository.findAll();
+//        var users = userRepository.findAll();
+//
+//        for(Ads ad: ads) {
+//            for (User user : users) {
+//                prepareAndSendMessage(user.getChatId(), ad.getAd());
+//            }
+//        }
+//    }
 }
