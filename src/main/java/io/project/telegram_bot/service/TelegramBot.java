@@ -30,6 +30,7 @@ import java.util.List;
 @Slf4j
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
+    private static final String YOU_NOT_ADMIN = "Вы не являетесь администратором бота и данная команда вам не доступна";
     private final String YES_BUTTON = "yes";
     private final String NO_BUTTON = "no";
     private final UserRepository repository;
@@ -44,6 +45,8 @@ public class TelegramBot extends TelegramLongPollingBot {
     private final String COMMAND_REGISTER_EN = "/register";
     private final String COMMAND_REGISTER_RU = "/регистрация";
     private final String COMMAND_SEND_EN = "/send";
+    private final String COMMAND_NOT_FOUND = "Простите, комманда не найдена";
+    private final String ERROR_MESSAGE = "Возникла ошибка: ";
     private static final String HELP_INFORMATION = """
             Краткая информация о том что умеет данный бот;
             Команда "/start" или "старт", запускает бота и приветствует пользователя;
@@ -66,7 +69,11 @@ public class TelegramBot extends TelegramLongPollingBot {
         listCommands.add(new BotCommand(COMMAND_HELP_EN, "информация о боте и командах"));
         listCommands.add(new BotCommand(COMMAND_REGISTER_EN, "регистрация пользователя - функционал будет добавлен позже"));
 
-        executeCommand(listCommands);
+        try {
+            this.execute(new SetMyCommands(listCommands, new BotCommandScopeDefault(), null));
+        } catch (TelegramApiException tae) {
+            log.error("Возникла ошибка в списке команд " + tae.getMessage());
+        }
 
     }
 
@@ -98,11 +105,10 @@ public class TelegramBot extends TelegramLongPollingBot {
                     var users = repository.findAll();
 
                     for (User user : users) {
-                        sendMessage(user.getChatId(), textToSend);
+                        prepareAndSendMessage(user.getChatId(), textToSend);
                     }
                 }
                 message = COMMAND_SEND_EN;
-
             }
 
             switch (message) {
@@ -110,7 +116,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                     registerUser(update.getMessage());
                     startCommandReceived(chatId, userFirstName);
                 }
-                case COMMAND_HELP_EN, COMMAND_HELP_RU -> sendMessage(chatId, HELP_INFORMATION);
+                case COMMAND_HELP_EN, COMMAND_HELP_RU -> prepareAndSendMessage(chatId, HELP_INFORMATION);
 
                 case COMMAND_MY_DATA_EN,COMMAND_MY_DATA_RU -> userInfo(chatId, update.getMessage());
 
@@ -120,11 +126,11 @@ public class TelegramBot extends TelegramLongPollingBot {
 
                 case COMMAND_SEND_EN -> {
                     if (config.getOwnerId() != chatId){
-                        sendMessage(chatId, "вы не являетесь администратором бота и данная команда вам не доступна");
+                        prepareAndSendMessage(chatId, YOU_NOT_ADMIN);
                     }
                 }
 
-                default -> sendMessage(chatId, "Простите, комманда не найдена");
+                default -> prepareAndSendMessage(chatId, COMMAND_NOT_FOUND );
             }
         }
         else if(update.hasCallbackQuery()) {
@@ -181,14 +187,14 @@ public class TelegramBot extends TelegramLongPollingBot {
 
         User user = repository.findByChatId(chatId);
         if (user == null) {
-            sendMessage(chatId, "Все данные о вас " + message.getChat().getUserName()+ " удалены из базы данных!");
+            prepareAndSendMessage(chatId, "Все данные о вас " + message.getChat().getUserName()+ " удалены из базы данных!");
             log.error("Данные о пользователе с ID=" + chatId + " не найдены!");
         }
         String answer;
         if (user != null) {
             answer = EmojiParser.parseToUnicode("Удаленны данные о пользователе: "
                     + user.getUserName() + ":ok_hand:");
-            sendMessage(chatId, answer);
+            prepareAndSendMessage(chatId, answer);
             repository.delete(user);
         }
 
@@ -204,13 +210,13 @@ public class TelegramBot extends TelegramLongPollingBot {
 
         User user = repository.findByChatId(chatId);
         if (user == null) {
-            sendMessage(chatId, "Данные о пользователе " + message.getChat().getUserName() + " не найдены!");
+            prepareAndSendMessage(chatId, "Данные о пользователе " + message.getChat().getUserName() + " не найдены!");
             log.error("Данные о пользователе с ID=" + chatId + " не найдены!");
         }
         assert user != null;
         String answer = EmojiParser.parseToUnicode("Данные которые хранятся в базе данных о тебе "
                 + user.getFirstName() + " :thinking::" + user);
-        sendMessage(chatId, answer);
+        prepareAndSendMessage(chatId, answer);
         log.info("Данные которые хранятся о пользователе: " + user);
     }
 
@@ -245,7 +251,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
         String answer = EmojiParser.parseToUnicode("Привет, " + userFirstName + ", приятно с тобой познакомиться" + " :blush:");
         log.info("ответил пользователю: " + userFirstName);
-        sendMessage(chatId, answer);
+        sendMessageKeyboardStart(chatId, answer);
     }
 
     /**
@@ -253,7 +259,7 @@ public class TelegramBot extends TelegramLongPollingBot {
      * @param chatId type of long
      * @param textToSend type of String
      */
-    private void sendMessage(long chatId, String textToSend) {
+    private void sendMessageKeyboardStart(long chatId, String textToSend) {
         SendMessage message = new SendMessage();
         message.setChatId(String.valueOf(chatId));
         message.setText(textToSend);
@@ -299,8 +305,8 @@ public class TelegramBot extends TelegramLongPollingBot {
         try {
             execute(message);
         } catch (TelegramApiException tae) {
-            log.error("Возникла ошибка: " + tae.getMessage());
-            System.out.println("Error sending message=" + tae);
+            log.error(ERROR_MESSAGE + tae.getMessage());
+            System.out.println(ERROR_MESSAGE + tae);
         }
     }
 
@@ -312,21 +318,15 @@ public class TelegramBot extends TelegramLongPollingBot {
         try {
             execute(message);
         } catch (TelegramApiException tae) {
-            log.error("Возникла ошибка: " + tae.getMessage());
-            System.out.println("Error sending message=" + tae);
+            log.error(ERROR_MESSAGE + tae.getMessage());
+            System.out.println(ERROR_MESSAGE + tae);
         }
     }
 
-    /**
-     * Метод формирования списка команд
-     * @param listCommands type List<BotCommand>
-     */
-    private void executeCommand(List<BotCommand> listCommands) {
-        try {
-            this.execute(new SetMyCommands(listCommands, new BotCommandScopeDefault(), null));
-        } catch (TelegramApiException tae) {
-            log.error("Возникла ошибка в списке команд " + tae.getMessage());
-        }
+    private void prepareAndSendMessage(long chatId, String textToSend) {
+        SendMessage message = new SendMessage();
+        message.setChatId(String.valueOf(chatId));
+        message.setText(textToSend);
+        executeMessageText(message);
     }
-
 }
