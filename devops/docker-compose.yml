@@ -8,3 +8,13 @@ services:
       POSTGRES_PASSWORD: 123456
     ports:
       - '8082:5432'
+
+  telegram-bot-service:
+    image:
+      telegram-bot
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db-telegram-bot:5432/postgres
+    ports:
+      - '8081:8081'
+    depends_on:
+      - db-telegram-bot
